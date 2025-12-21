@@ -139,32 +139,6 @@ This will:
 ./build/preprocess_rays --data_dir ./data/sunrgbd
 ```
 
-This will compute and save ray directions for all images using their camera intrinsics.
-
-### Week 2: Model Implementation (In Progress)
-
-#### Tasks:
-- [ ] Implement baseline U-Net architecture
-- [ ] Implement intrinsics-conditioned network
-- [ ] Implement geometry-aware network with PCL and FiLM
-- [ ] Write model tests and sanity checks
-
-### Week 3: Training & Ablation Studies
-
-#### Tasks:
-- [ ] Set up training pipeline
-- [ ] Train all model variants
-- [ ] Run ablation studies
-- [ ] Analyze sparse view performance
-
-### Week 4: Evaluation & Analysis
-
-#### Tasks:
-- [ ] Quantitative evaluation on test set
-- [ ] Qualitative visualizations
-- [ ] Comparison with learned pose methods
-- [ ] Generate technical report
-
 ## Usage Examples
 
 ### Data Loading
