@@ -1,0 +1,270 @@
+# Training Configuration for Camera-Aware Depth Estimation
+# Based on best practices from MiDaS, Monodepth2, and recent depth estimation papers
+
+experiment:
+  name: "baseline_unet"
+  description: "Baseline U-Net training on SUN RGB-D"
+  tags: ["baseline", "unet", "sunrgbd"]
+  seed: 42
+  deterministic: false
+
+# Dataset configuration
+data:
+  dataset_name: "sunrgbd"
+  data_dir: "./data/sunrgbd"
+  manifest_path: "./data/manifest/sunrgbd_manifest.json"
+
+  # Split configuration
+  train_split: "train"  # Use official train split (5,285 images)
+  val_split: "test"     # Use official test split (5,050 images)
+
+  # Sensor filtering (empty = use all sensors)
+  sensor_types: []  # Options: ["kv1", "kv2", "realsense", "xtion"]
+
+  # Image preprocessing
+  input_height: 240
+  input_width: 320
+  resize_mode: "crop"  # "crop", "resize", "pad"
+
+  # Data augmentation
+  augmentation:
+    random_crop: true
+    horizontal_flip: true
+    flip_probability: 0.5
+    color_jitter: true
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+    random_gamma: true
+    gamma_range: [0.8, 1.2]
+
+# Model configuration
+model:
+  architecture: "baseline_unet"  # Options: "baseline_unet", "intrinsics_unet", "geometry_aware"
+
+  # Architecture-specific parameters
+  in_channels: 3
+  init_features: 64
+  max_depth: 10.0
+
+  # For intrinsics/geometry-aware models
+  camera_dim: 4
+  use_pcl: true
+  use_attention: true
+
+  # Model variant (for geometry-aware)
+  variant: "full"  # "full", "lightweight"
+
+# Optimization configuration
+optimization:
+  optimizer: "adamw"  # "adam", "adamw", "sgd"
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-5
+
+  # Optimizer-specific parameters
+  adam:
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+
+  sgd:
+    momentum: 0.9
+    nesterov: true
+
+  # Learning rate scheduling
+  lr_scheduler: "step"  # "step", "cosine", "plateau", "onecycle", "none"
+  lr_step_size: 10      # For step scheduler
+  lr_gamma: 0.5         # LR decay factor
+  lr_warmup_epochs: 2   # Linear warmup
+  lr_min: 1.0e-6        # Minimum LR
+
+  # Gradient management
+  gradient_clip: true
+  gradient_clip_value: 1.0
+  gradient_clip_norm_type: 2.0  # L2 norm
+
+# Loss function configuration
+loss:
+  # Loss weights (sum should generally be around 1.0)
+  si_weight: 1.0          # Scale-invariant loss
+  grad_weight: 0.1        # Gradient matching loss
+  smooth_weight: 0.001    # Smoothness loss
+
+  # Loss-specific parameters
+  si_lambda: 0.5          # Scale term weight in SILog
+  grad_num_scales: 4      # Number of scales for gradient loss
+
+  # Depth range for loss computation
+  min_depth: 0.1
+  max_depth: 10.0
+
+# Training loop configuration
+training:
+  num_epochs: 50
+  batch_size: 8
+  num_workers: 4
+  pin_memory: true
+  prefetch_factor: 2
+
+  # Mixed precision training (faster on modern GPUs)
+  use_amp: true  # Automatic Mixed Precision
+
+  # Logging
+  log_interval: 10        # Log every N batches
+  val_interval: 1         # Validate every N epochs
+
+  # Visualization
+  save_predictions: true  # Save sample predictions during validation
+  num_vis_samples: 4      # Number of samples to visualize
+
+# Validation and metrics
+validation:
+  # Metrics to compute
+  metrics: ["abs_rel", "sq_rel", "rmse", "rmse_log", "mae", "log10",
+            "delta_1.25", "delta_1.25^2", "delta_1.25^3"]
+
+  # Primary metric for model selection
+  primary_metric: "abs_rel"
+  metric_mode: "min"  # "min" or "max"
+
+  # Depth range for metrics
+  min_depth: 0.1
+  max_depth: 10.0
+
+# Checkpointing configuration
+checkpointing:
+  checkpoint_dir: "./checkpoints"
+  save_interval: 5        # Save every N epochs
+  save_best_only: true    # Only save best model (based on primary metric)
+  save_last: true         # Always save last epoch
+  keep_last_n: 3          # Keep only N most recent checkpoints
+
+  # Resume training
+  resume_from: ""         # Path to checkpoint to resume from
+
+# Early stopping configuration
+early_stopping:
+  enabled: true
+  patience: 10            # Stop if no improvement for N epochs
+  min_delta: 1.0e-4       # Minimum change to qualify as improvement
+
+# Logging and experiment tracking
+logging:
+  log_dir: "./logs"
+
+  # TensorBoard
+  tensorboard:
+    enabled: true
+    log_scalar_interval: 10    # Log scalars every N batches
+    log_image_interval: 100    # Log images every N batches
+    log_histogram_interval: 0  # Log histograms every N epochs (0 = disabled)
+
+  # CSV logging
+  csv:
+    enabled: true
+    metrics_file: "metrics.csv"
+    losses_file: "losses.csv"
+
+  # Console output
+  console:
+    verbose: true
+    show_progress_bar: true
+
+# Hardware configuration
+hardware:
+  device: "cuda"  # "cuda", "cpu", "mps" (for Apple Silicon)
+  gpu_ids: [0]    # GPU IDs to use (for multi-GPU)
+  num_gpus: 1
+
+  # Distributed training (future)
+  distributed: false
+  backend: "nccl"  # "nccl", "gloo"
+
+# Reproducibility
+reproducibility:
+  seed: 42
+  deterministic: false  # Set to true for full reproducibility (slower)
+  benchmark: true       # cudnn.benchmark for faster training
+
+# Experiment-specific overrides (for ablation studies)
+# These override the base configuration when running specific experiments
+
+experiments:
+  # Baseline experiments
+  baseline_small:
+    model:
+      init_features: 32
+    training:
+      batch_size: 16
+
+  baseline_large:
+    model:
+      init_features: 128
+    training:
+      batch_size: 4
+
+  # Intrinsics-only experiment
+  intrinsics_only:
+    model:
+      architecture: "intrinsics_unet"
+    experiment:
+      name: "intrinsics_conditioned"
+      tags: ["intrinsics", "film"]
+
+  # Geometry-aware experiment
+  geometry_aware_full:
+    model:
+      architecture: "geometry_aware"
+      variant: "full"
+      use_pcl: true
+      use_attention: true
+    experiment:
+      name: "geometry_aware_full"
+      tags: ["geometry", "rays", "pcl", "film", "attention"]
+    training:
+      batch_size: 4  # Larger model, smaller batch
+
+  geometry_aware_lightweight:
+    model:
+      architecture: "geometry_aware"
+      variant: "lightweight"
+    experiment:
+      name: "geometry_aware_lite"
+    training:
+      batch_size: 8
+
+  # Ablation: rays only
+  ablation_rays_only:
+    model:
+      architecture: "geometry_aware"
+      use_pcl: false
+      use_attention: false
+    experiment:
+      name: "ablation_rays_only"
+      tags: ["ablation", "rays"]
+
+  # Ablation: FiLM only
+  ablation_film_only:
+    model:
+      architecture: "intrinsics_unet"
+      use_attention: false
+    experiment:
+      name: "ablation_film_only"
+      tags: ["ablation", "film"]
+
+  # Ablation: attention only
+  ablation_attention_only:
+    model:
+      architecture: "intrinsics_unet"
+      use_attention: true
+    experiment:
+      name: "ablation_attention_only"
+      tags: ["ablation", "attention"]
+
+# Quick test configuration (for debugging)
+debug:
+  enabled: false
+  num_train_samples: 100
+  num_val_samples: 50
+  num_epochs: 2
+  log_interval: 1

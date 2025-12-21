@@ -1,0 +1,59 @@
+# ===============================
+# Dataset (local only)
+# ===============================
+data/sunrgbd/
+
+# ===============================
+# Build directories
+# ===============================
+build/
+build-*/
+cmake-build-*/
+
+# ===============================
+# CMake generated files
+# ===============================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+
+# ===============================
+# Compiler outputs
+# ===============================
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+
+# ===============================
+# Debug / profiling
+# ===============================
+*.gcno
+*.gcda
+*.gcov
+*.prof
+
+# ===============================
+# Editor / OS junk
+# ===============================
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# ===============================
+# Logs / temp
+# ===============================
+*.log
+tmp/
+temp/

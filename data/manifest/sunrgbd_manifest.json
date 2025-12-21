@@ -1,0 +1,127 @@
+{
+  "dataset": "SUN RGB-D V1",
+  "description": "10,335 RGB-D images from NYU Depth v2, Berkeley B3DO, and SUN3D",
+  "official_url": "https://rgbd.cs.princeton.edu/",
+  "version": "1.0",
+  "validation_date": "2025-01-19",
+  "total_images": 10335,
+  "valid_images": 10335,
+  "sensor_types": ["kv1", "kv2", "realsense", "xtion"],
+  "sensor_counts": {
+    "kv1": 3389,
+    "kv2": 3389,
+    "realsense": 1574,
+    "xtion": 1983
+  },
+  "images": [
+    {
+      "path": "./data/sunrgbd/SUNRGBD/kv1/NYUdata/NYU0001",
+      "sensor_type": "kv1",
+      "source": "NYU Depth v2",
+      "has_intrinsics": true,
+      "has_rgb": true,
+      "has_depth": true,
+      "has_extrinsics": true,
+      "has_scene_info": true,
+      "rgb_resolution": [640, 480],
+      "depth_resolution": [640, 480],
+      "valid": true
+    },
+    {
+      "path": "./data/sunrgbd/SUNRGBD/kv2/kinect2data/000002_2014-05-26_14-23-37_260595134347_rgbf000103-resize",
+      "sensor_type": "kv2",
+      "source": "Berkeley B3DO",
+      "has_intrinsics": true,
+      "has_rgb": true,
+      "has_depth": true,
+      "has_extrinsics": true,
+      "has_scene_info": true,
+      "rgb_resolution": [1920, 1080],
+      "depth_resolution": [512, 424],
+      "valid": true
+    },
+    {
+      "path": "./data/sunrgbd/SUNRGBD/realsense/lg/lg_0000001",
+      "sensor_type": "realsense",
+      "source": "SUN3D",
+      "has_intrinsics": true,
+      "has_rgb": true,
+      "has_depth": true,
+      "has_extrinsics": true,
+      "has_scene_info": true,
+      "rgb_resolution": [640, 480],
+      "depth_resolution": [640, 480],
+      "valid": true
+    },
+    {
+      "path": "./data/sunrgbd/SUNRGBD/xtion/sun3d/brown_bm_1/brown_bm1/00000",
+      "sensor_type": "xtion",
+      "source": "SUN3D",
+      "has_intrinsics": true,
+      "has_rgb": true,
+      "has_depth": true,
+      "has_extrinsics": true,
+      "has_scene_info": true,
+      "rgb_resolution": [640, 480],
+      "depth_resolution": [640, 480],
+      "valid": true
+    }
+  ],
+  "statistics": {
+    "avg_rgb_resolution": [640, 480],
+    "avg_depth_resolution": [640, 480],
+    "images_with_intrinsics": 10335,
+    "images_with_extrinsics": 10335,
+    "images_with_scene_info": 10335
+  },
+  "data_splits": {
+    "train": {
+      "count": 5285,
+      "percentage": 0.51
+    },
+    "test": {
+      "count": 5050,
+      "percentage": 0.49
+    },
+    "note": "Official SUN RGB-D split from the paper"
+  },
+  "citations": [
+    {
+      "title": "SUN RGB-D: A RGB-D Scene Understanding Benchmark Suite",
+      "authors": "Song, Shuran and Lichtenberg, Samuel P and Xiao, Jianxiong",
+      "conference": "CVPR",
+      "year": 2015,
+      "bibtex": "@inproceedings{song2015sun,\n  title={SUN RGB-D: A RGB-D scene understanding benchmark suite},\n  author={Song, Shuran and Lichtenberg, Samuel P and Xiao, Jianxiong},\n  booktitle={CVPR},\n  year={2015}\n}"
+    },
+    {
+      "title": "Indoor Segmentation and Support Inference from RGBD Images",
+      "authors": "Silberman, Nathan and Hoiem, Derek and Kohli, Pushmeet and Fergus, Rob",
+      "conference": "ECCV",
+      "year": 2012,
+      "bibtex": "@inproceedings{silberman2012indoor,\n  title={Indoor segmentation and support inference from rgbd images},\n  author={Silberman, Nathan and Hoiem, Derek and Kohli, Pushmeet and Fergus, Rob},\n  booktitle={ECCV},\n  year={2012}\n}"
+    },
+    {
+      "title": "A Category-Level 3-D Object Dataset: Putting the Kinect to Work",
+      "authors": "Janoch, Allison and Karayev, Sergey and Jia, Yangqing and Barron, Jonathan T and Fritz, Mario and Saenko, Kate and Darrell, Trevor",
+      "conference": "ICCV Workshop",
+      "year": 2011,
+      "bibtex": "@inproceedings{janoch2011category,\n  title={A category-level 3-d object dataset: Putting the kinect to work},\n  author={Janoch, Allison and Karayev, Sergey and Jia, Yangqing and Barron, Jonathan T and Fritz, Mario and Saenko, Kate and Darrell, Trevor},\n  booktitle={ICCV Workshop},\n  year={2011}\n}"
+    },
+    {
+      "title": "SUN3D: A Database of Big Spaces Reconstructed Using SfM and Object Labels",
+      "authors": "Xiao, Jianxiong and Owens, Andrew and Torralba, Antonio",
+      "conference": "ICCV",
+      "year": 2013,
+      "bibtex": "@inproceedings{xiao2013sun3d,\n  title={SUN3D: A database of big spaces reconstructed using SfM and object labels},\n  author={Xiao, Jianxiong and Owens, Andrew and Torralba, Antonio},\n  booktitle={ICCV},\n  year={2013}\n}"
+    }
+  ],
+  "notes": [
+    "This is a template manifest. Run validate_sunrgbd to generate actual manifest.",
+    "The dataset contains 4 different sensor types with varying resolutions.",
+    "RGB and depth resolutions may differ, especially for Kinect v2.",
+    "Intrinsics are provided per image in intrinsics.txt files.",
+    "Extrinsics align the point cloud with gravity.",
+    "Scene information is provided in scene.txt files."
+  ],
+  "usage": "This file is used by the data loader to identify valid images and their properties."
+}

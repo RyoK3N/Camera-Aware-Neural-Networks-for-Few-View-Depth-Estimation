@@ -1,0 +1,159 @@
+# SUN RGB-D Data Configuration
+# Configuration file for data loading and preprocessing
+
+dataset:
+  name: "SUN RGB-D"
+  version: "v1"
+  data_dir: "./data/sunrgbd"
+  manifest_path: "./data/sunrgbd_manifest.json"
+  official_url: "https://rgbd.cs.princeton.edu/"
+
+  # Dataset information
+  total_images: 10335
+  sources:
+    - "NYU Depth v2"
+    - "Berkeley B3DO"
+    - "SUN3D"
+
+  # Sensor types
+  sensors:
+    - "kv1"        # Kinect v1
+    - "kv2"        # Kinect v2
+    - "realsense"  # Intel RealSense
+    - "xtion"      # Asus Xtion
+
+  # Data splits (official SUN RGB-D split)
+  splits:
+    train: 5285    # 51% - official train split
+    test: 5050     # 49% - official test split
+    use_official_split: true
+
+# Image preprocessing
+preprocessing:
+  # Target dimensions (downsampled for speed)
+  target_height: 240
+  target_width: 320
+
+  # Original ScanNet resolution
+  original_height: 480
+  original_width: 640
+
+  # Depth map processing
+  depth:
+    min_depth: 0.1      # meters
+    max_depth: 10.0     # meters
+    scale: 0.001        # Convert from mm to meters
+    invalid_value: 0.0
+
+  # RGB normalization
+  rgb:
+    mean: [0.485, 0.456, 0.406]  # ImageNet mean
+    std: [0.229, 0.224, 0.225]    # ImageNet std
+    normalize: true
+
+  # Ray direction computation
+  ray_directions:
+    precompute: true
+    save_format: "binary"  # "binary" or "hdf5"
+    coordinate_system: "camera"  # "camera" or "world"
+
+# Data augmentation (training only)
+augmentation:
+  enabled: true
+
+  # Random crop
+  random_crop:
+    enabled: true
+    scale_min: 0.7
+    scale_max: 1.0
+
+  # Horizontal flip
+  horizontal_flip:
+    enabled: true
+    probability: 0.5
+
+  # Color jittering
+  color_jitter:
+    enabled: true
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+
+  # Random seed for reproducibility
+  random_seed: 42
+
+# Data loader settings
+dataloader:
+  batch_size: 8
+  num_workers: 4
+  shuffle: true
+  pin_memory: true
+  drop_last: false
+
+  # Prefetching
+  prefetch_factor: 2
+
+# Validation settings
+validation:
+  batch_size: 4
+  num_workers: 2
+  shuffle: false
+
+# Testing settings
+testing:
+  batch_size: 1
+  num_workers: 1
+  shuffle: false
+
+# Cache settings
+cache:
+  enabled: false
+  cache_dir: "./cache"
+  max_cache_size_gb: 10
+
+# File formats
+file_formats:
+  rgb:
+    extension: ".jpg"
+    fallback: ".png"
+  depth:
+    extension: ".png"
+    bit_depth: 16  # 16-bit PNG
+  pose:
+    extension: ".txt"
+    format: "4x4_matrix"  # 4x4 transformation matrix
+  intrinsics:
+    extension: ".txt"
+    format: "3x3_matrix"  # 3x3 intrinsic matrix
+  ray_directions:
+    extension: ".bin"
+    format: "float32"
+
+# Quality checks
+quality_checks:
+  # File existence checks
+  check_rgb: true
+  check_depth: true
+  check_pose: true
+  check_intrinsics: true
+
+  # Alignment checks
+  check_frame_alignment: true
+  check_dimensions: true
+
+  # Value range checks
+  check_depth_range: true
+  check_intrinsics_validity: true
+  check_pose_validity: true
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_file: "./logs/data_loader.log"
+  verbose: true
+
+# Performance
+performance:
+  enable_profiling: false
+  profile_output: "./logs/data_loader_profile.txt"
