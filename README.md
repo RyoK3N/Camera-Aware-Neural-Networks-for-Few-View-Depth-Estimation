@@ -217,18 +217,6 @@ Results will be saved in the `results/` directory:
 - `results/visualizations/`: Visual comparisons
 - `results/tables/`: LaTeX tables for paper
 
-## Project Timeline
-
-| Week | Focus Area | Status |
-|------|------------|--------|
-| 1 | Data Pipeline & Preprocessing | ✓ Completed |
-| 2 | Baseline & Model Implementation | In Progress |
-| 3 | Training & Ablation Studies | Pending |
-| 4 | Evaluation & Analysis | Pending |
-
-**Total Estimated Hours:** 120-150 hours
-**Sprint Duration:** 4 weeks
-
 ## Documentation
 
 - **Sprint Plan**: See `documents/sprint_plan.md` for detailed weekly tasks
