@@ -97,9 +97,6 @@ make -j$(nproc)
 ```
 
 ## Getting Started
-
-### Week 1: Data Pipeline & Preprocessing (COMPLETED ✓)
-
 #### 1. Download SUN RGB-D Dataset
 
 **No approval required!** SUN RGB-D is freely available for download.
