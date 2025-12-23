@@ -22,6 +22,9 @@
 #include "../loss/depth_loss.h"
 #include "../data/sunrgbd_loader.h"
 #include "../training/trainer.h"
+#include "../training/production_trainer.h"
+#include "../training/tensorboard_trainer.h"
+#include "../training/tensorboard_trainer_enhanced.h"
 #include "../evaluation/depth_metrics.h"
 
 using namespace camera_aware_depth;
@@ -38,6 +41,7 @@ cxxopts::ParseResult parseArguments(int argc, char* argv[]) {
         ("r,resume", "Resume from checkpoint", cxxopts::value<std::string>()->default_value(""))
         ("g,gpu", "GPU ID", cxxopts::value<int>()->default_value("0"))
         ("d,debug", "Enable debug mode", cxxopts::value<bool>()->default_value("false"))
+        ("tensorboard", "Enable TensorBoard logging", cxxopts::value<bool>()->default_value("true"))
         ("h,help", "Print help");
 
     auto result = options.parse(argc, argv);
@@ -100,6 +104,7 @@ TrainingConfig loadConfig(const std::string& config_path, const std::string& exp
         train_config.si_weight = loss["si_weight"].as<float>(1.0f);
         train_config.grad_weight = loss["grad_weight"].as<float>(0.1f);
         train_config.smooth_weight = loss["smooth_weight"].as<float>(0.001f);
+        train_config.reproj_weight = loss["reproj_weight"].as<float>(0.01f);
         train_config.min_depth = loss["min_depth"].as<float>(0.1f);
         train_config.max_depth = loss["max_depth"].as<float>(10.0f);
     }
@@ -263,7 +268,8 @@ void printBanner(const TrainingConfig& config, const YAML::Node& yaml_config) {
     std::cout << "  Epochs: " << config.num_epochs << "\n";
     std::cout << "  Loss Weights: SI=" << config.si_weight
               << " Grad=" << config.grad_weight
-              << " Smooth=" << config.smooth_weight << "\n";
+              << " Smooth=" << config.smooth_weight
+              << " Reproj=" << config.reproj_weight << "\n";
     std::cout << "\n";
 }
 
@@ -280,6 +286,7 @@ int main(int argc, char* argv[]) {
         std::string resume_checkpoint = args["resume"].as<std::string>();
         int gpu_id = args["gpu"].as<int>();
         bool debug_mode = args["debug"].as<bool>();
+        bool use_tensorboard = args["tensorboard"].as<bool>();
 
         // Load configuration
         std::cout << "Loading configuration from: " << config_path << "\n";
@@ -312,7 +319,18 @@ int main(int argc, char* argv[]) {
 
         // Create model
         std::cout << "Creating model...\n";
-        auto model = createModel(yaml_config);
+
+        // For now, create a simple baseline model directly
+        // TODO: Use createModel() with proper type casting
+        int init_features = 64;
+        float max_depth = 10.0f;
+        if (yaml_config["model"]) {
+            init_features = yaml_config["model"]["init_features"].as<int>(64);
+            max_depth = yaml_config["model"]["max_depth"].as<float>(10.0f);
+        }
+
+        auto model_impl = std::make_shared<BaselineUNetImpl>(3, init_features, max_depth);
+        auto model = std::dynamic_pointer_cast<torch::nn::Module>(model_impl);
 
         // Count parameters
         int64_t total_params = 0;
@@ -334,58 +352,151 @@ int main(int argc, char* argv[]) {
         auto loss_fn = std::make_shared<CombinedDepthLoss>(
             config.si_weight,
             config.grad_weight,
-            config.smooth_weight
+            config.smooth_weight,
+            config.reproj_weight
         );
 
         // Create data loaders
         std::cout << "Loading dataset...\n";
 
-        // TODO: Implement actual data loader creation based on config
-        // For now, this is a placeholder that shows the structure
+        // Load data configuration
+        std::string data_dir = yaml_config["data"]["data_dir"].as<std::string>("./data/sunrgbd");
+        std::string manifest_path = yaml_config["data"]["manifest_path"].as<std::string>("./data/sunrgbd_manifest.json");
 
-        /*
-        auto train_dataset = createDataset(yaml_config, "train");
-        auto val_dataset = createDataset(yaml_config, "val");
+        std::cout << "  Data directory: " << data_dir << "\n";
+        std::cout << "  Manifest path: " << manifest_path << "\n";
 
-        auto train_loader = torch::data::make_data_loader(
-            std::move(train_dataset),
-            torch::data::DataLoaderOptions()
-                .batch_size(config.batch_size)
-                .workers(config.num_workers)
+        // Create training data loader
+        auto train_loader_ptr = std::make_shared<SunRGBDLoader>(
+            data_dir,
+            manifest_path,
+            "train"
         );
 
-        auto val_loader = torch::data::make_data_loader(
-            std::move(val_dataset),
-            torch::data::DataLoaderOptions()
-                .batch_size(config.batch_size)
-                .workers(config.num_workers)
+        // Enable augmentation for training
+        AugmentationConfig aug_config;
+        aug_config.enable_random_crop = yaml_config["data"]["augmentation"]["random_crop"].as<bool>(true);
+        aug_config.enable_horizontal_flip = yaml_config["data"]["augmentation"]["horizontal_flip"].as<bool>(true);
+        aug_config.horizontal_flip_prob = yaml_config["data"]["augmentation"]["flip_probability"].as<float>(0.5f);
+        aug_config.enable_color_jitter = yaml_config["data"]["augmentation"]["color_jitter"].as<bool>(true);
+        aug_config.brightness_delta = yaml_config["data"]["augmentation"]["brightness"].as<float>(0.2f);
+        aug_config.contrast_delta = yaml_config["data"]["augmentation"]["contrast"].as<float>(0.2f);
+        aug_config.saturation_delta = yaml_config["data"]["augmentation"]["saturation"].as<float>(0.2f);
+        aug_config.hue_delta = yaml_config["data"]["augmentation"]["hue"].as<float>(0.1f);
+        train_loader_ptr->enableAugmentation(aug_config);
+
+        // Set target dimensions
+        int input_height = yaml_config["data"]["input_height"].as<int>(240);
+        int input_width = yaml_config["data"]["input_width"].as<int>(320);
+        train_loader_ptr->setTargetDimensions(input_height, input_width);
+
+        // Create validation data loader
+        auto val_loader_ptr = std::make_shared<SunRGBDLoader>(
+            data_dir,
+            manifest_path,
+            "test"  // Using test split for validation
         );
-        */
+        val_loader_ptr->disableAugmentation();
+        val_loader_ptr->setTargetDimensions(input_height, input_width);
 
-        // Create trainer
-        std::cout << "Initializing trainer...\n";
-        DepthTrainer trainer(model, loss_fn, config, device);
+        std::cout << "Training samples: " << train_loader_ptr->size() << "\n";
+        std::cout << "Validation samples: " << val_loader_ptr->size() << "\n";
+        std::cout << "\n";
 
-        // Resume from checkpoint if specified
-        if (!resume_checkpoint.empty()) {
-            std::cout << "Resuming from checkpoint: " << resume_checkpoint << "\n";
-            trainer.loadCheckpoint(resume_checkpoint);
+        // Create trainer based on configuration
+        if (use_tensorboard) {
+            // TensorBoard trainer with state-of-the-art visualization
+            TensorBoardTrainerEnhanced::Config tb_config;
+            tb_config.num_epochs = config.num_epochs;
+            tb_config.batch_size = config.batch_size;
+            tb_config.learning_rate = config.learning_rate;
+            tb_config.weight_decay = config.weight_decay;
+            tb_config.use_grad_clip = config.use_grad_clip;
+            tb_config.grad_clip_value = config.grad_clip_value;
+            tb_config.val_interval = config.val_interval;
+            tb_config.log_interval = config.log_interval;
+            tb_config.save_interval = config.save_interval;
+            tb_config.checkpoint_dir = config.checkpoint_dir;
+            tb_config.log_dir = config.log_dir;
+            tb_config.tensorboard_dir = yaml_config["logging"]["tensorboard"]["tensorboard_dir"]
+                .as<std::string>("./runs");
+            tb_config.experiment_name = config.experiment_name;
+            tb_config.device = device;
+            tb_config.viz_interval = yaml_config["logging"]["tensorboard"]["log_image_interval"]
+                .as<int>(1);
+            tb_config.num_viz_samples = yaml_config["visualization"]["num_viz_samples"]
+                .as<int>(4);
+            tb_config.histogram_interval = yaml_config["logging"]["tensorboard"]["log_histogram_interval"]
+                .as<int>(5);
+
+            std::cout << "Initializing TensorBoard trainer (Enhanced)...\n";
+            std::cout << "  Batch size: " << tb_config.batch_size << "\n";
+            std::cout << "  Learning rate: " << tb_config.learning_rate << "\n";
+            std::cout << "  Validation interval: " << tb_config.val_interval << " epochs\n";
+            std::cout << "  Logging to: " << tb_config.log_dir << "\n";
+            std::cout << "  TensorBoard to: " << tb_config.tensorboard_dir << "\n";
+            std::cout << "  Checkpoints to: " << tb_config.checkpoint_dir << "\n";
+            std::cout << "\n";
+
+            TensorBoardTrainerEnhanced trainer(model, model_impl, loss_fn, tb_config);
+
+            std::cout << "════════════════════════════════════════════════════════════\n";
+            std::cout << "Starting training with TensorBoard...\n";
+            std::cout << "════════════════════════════════════════════════════════════\n";
+
+            trainer.train(train_loader_ptr, val_loader_ptr);
+
+            std::cout << "\n";
+            std::cout << "════════════════════════════════════════════════════════════\n";
+            std::cout << "Training completed successfully!\n";
+            std::cout << "Checkpoints saved in: " << tb_config.checkpoint_dir << "\n";
+            std::cout << "Logs saved in: " << tb_config.log_dir << "\n";
+            std::cout << "TensorBoard logs in: " << tb_config.tensorboard_dir << "\n";
+            std::cout << "\nView TensorBoard:\n";
+            std::cout << "  tensorboard --logdir=" << tb_config.tensorboard_dir << "\n";
+            std::cout << "  Then open: http://localhost:6006\n";
+            std::cout << "\n";
+        } else {
+            // Production trainer without TensorBoard
+            ProductionTrainer::Config trainer_config;
+            trainer_config.num_epochs = config.num_epochs;
+            trainer_config.batch_size = config.batch_size;
+            trainer_config.learning_rate = config.learning_rate;
+            trainer_config.weight_decay = config.weight_decay;
+            trainer_config.use_grad_clip = config.use_grad_clip;
+            trainer_config.grad_clip_value = config.grad_clip_value;
+            trainer_config.val_interval = config.val_interval;
+            trainer_config.log_interval = config.log_interval;
+            trainer_config.save_interval = config.save_interval;
+            trainer_config.checkpoint_dir = config.checkpoint_dir;
+            trainer_config.log_dir = config.log_dir;
+            trainer_config.experiment_name = config.experiment_name;
+            trainer_config.device = device;
+
+            std::cout << "Initializing production trainer...\n";
+            std::cout << "  Batch size: " << trainer_config.batch_size << "\n";
+            std::cout << "  Learning rate: " << trainer_config.learning_rate << "\n";
+            std::cout << "  Logging to: " << trainer_config.log_dir << "\n";
+            std::cout << "  Checkpoints to: " << trainer_config.checkpoint_dir << "\n";
+            std::cout << "\n";
+
+            ProductionTrainer trainer(model, model_impl, loss_fn, trainer_config);
+
+            std::cout << "════════════════════════════════════════════════════════════\n";
+            std::cout << "Starting training...\n";
+            std::cout << "════════════════════════════════════════════════════════════\n";
+
+            trainer.train(train_loader_ptr, val_loader_ptr);
+
+            std::cout << "\n";
+            std::cout << "════════════════════════════════════════════════════════════\n";
+            std::cout << "Training completed successfully!\n";
+            std::cout << "Checkpoints saved in: " << config.checkpoint_dir << "\n";
+            std::cout << "Logs saved in: " << config.log_dir << "\n";
+            std::cout << "  - training.log: Timestamped training log\n";
+            std::cout << "  - metrics.csv: Epoch-by-epoch metrics\n";
+            std::cout << "\n";
         }
-
-        std::cout << "\n";
-        std::cout << "Starting training...\n";
-        std::cout << "════════════════════════════════════════════════════════════\n";
-        std::cout << "\n";
-
-        // Start training
-        // trainer.train(*train_loader, *val_loader);
-
-        std::cout << "\n";
-        std::cout << "════════════════════════════════════════════════════════════\n";
-        std::cout << "Training completed successfully!\n";
-        std::cout << "Checkpoints saved in: " << config.checkpoint_dir << "\n";
-        std::cout << "Logs saved in: " << config.log_dir << "\n";
-        std::cout << "\n";
 
         return 0;
 

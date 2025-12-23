@@ -12,7 +12,7 @@ experiment:
 data:
   dataset_name: "sunrgbd"
   data_dir: "./data/sunrgbd"
-  manifest_path: "./data/manifest/sunrgbd_manifest.json"
+  manifest_path: "./data/sunrgbd_manifest.json"
 
   # Split configuration
   train_split: "train"  # Use official train split (5,285 images)
@@ -86,9 +86,11 @@ optimization:
 # Loss function configuration
 loss:
   # Loss weights (sum should generally be around 1.0)
-  si_weight: 1.0          # Scale-invariant loss
-  grad_weight: 0.1        # Gradient matching loss
-  smooth_weight: 0.001    # Smoothness loss
+  si_weight: 1.0          # Scale-invariant loss (main depth accuracy)
+  grad_weight: 0.1        # Gradient matching loss (edge sharpness)
+  smooth_weight: 0.001    # Edge-aware smoothness
+  reproj_weight: 0.01     # Reprojection error (geometric consistency with camera intrinsics)
+                          # Based on 2024-2025 research: UniDepth, Long-term reprojection loss
 
   # Loss-specific parameters
   si_lambda: 0.5          # Scale term weight in SILog

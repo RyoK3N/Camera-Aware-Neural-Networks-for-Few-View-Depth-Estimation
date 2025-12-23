@@ -148,7 +148,11 @@ if(BUILD_TRAINING)
         data_loader_lib
         Eigen3::Eigen
         ${OpenCV_LIBS}
+        nlohmann_json::nlohmann_json
         /opt/homebrew/lib/libyaml-cpp.dylib
+    )
+    target_include_directories(train PRIVATE
+        ${CMAKE_SOURCE_DIR}
     )
     set_property(TARGET train PROPERTY CXX_STANDARD 17)
 
@@ -156,7 +160,7 @@ if(BUILD_TRAINING)
 endif()
 
 # Evaluation executable (Week 4)
-option(BUILD_EVALUATION "Build evaluation executable" ON)
+option(BUILD_EVALUATION "Build evaluation executable" OFF)
 if(BUILD_EVALUATION)
     add_executable(evaluate
         src/evaluation/evaluate_main.cpp
@@ -166,8 +170,8 @@ if(BUILD_EVALUATION)
         data_loader_lib
         Eigen3::Eigen
         ${OpenCV_LIBS}
-        /opt/homebrew/lib/libyaml-cpp.dylib
-        /opt/homebrew/lib/libcxxopts.a
+        yaml-cpp
+        cxxopts
     )
     set_property(TARGET evaluate PROPERTY CXX_STANDARD 17)
 
@@ -177,23 +181,18 @@ endif()
 # Test executables
 option(BUILD_TESTS "Build test executables" ON)
 if(BUILD_TESTS)
-    # TODO: Implement these tests
-    # add_executable(test_ray_directions
-    #     tests/test_ray_directions.cpp
-    # )
-    # target_link_libraries(test_ray_directions
-    #     ray_direction_lib
-    #     Eigen3::Eigen
-    # )
-
-    # add_executable(test_data_loader
-    #     tests/test_data_loader.cpp
-    # )
-    # target_link_libraries(test_data_loader
-    #     data_loader_lib
-    #     ${TORCH_LIBRARIES}
-    #     ${OpenCV_LIBS}
-    # )
+    # Data loader test
+    add_executable(test_dataloader
+        tests/test_dataloader.cpp
+    )
+    target_link_libraries(test_dataloader
+        data_loader_lib
+        ${TORCH_LIBRARIES}
+        ${OpenCV_LIBS}
+        Eigen3::Eigen
+        nlohmann_json::nlohmann_json
+    )
+    set_property(TARGET test_dataloader PROPERTY CXX_STANDARD 17)
 
     # Model tests (Week 2)
     add_executable(test_models
@@ -207,7 +206,7 @@ if(BUILD_TESTS)
 endif()
 
 # Installation
-install(TARGETS validate_sunrgbd preprocess_rays train evaluate
+install(TARGETS validate_sunrgbd preprocess_rays train
     RUNTIME DESTINATION bin
 )
 

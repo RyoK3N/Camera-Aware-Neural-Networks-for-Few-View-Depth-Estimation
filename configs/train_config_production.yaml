@@ -1,0 +1,228 @@
+# Production Training Configuration
+# Optimized for high-end GPU servers (NVIDIA A100/V100/RTX 4090)
+# Hardware Assumptions: 40GB+ GPU memory, 64GB+ RAM, 32+ CPU cores
+
+experiment:
+  name: "production_unet"
+  description: "Production U-Net training with reprojection loss and TensorBoard"
+  tags: ["production", "unet", "sunrgbd", "reproj", "tensorboard"]
+  seed: 42
+  deterministic: false
+
+# Dataset configuration
+data:
+  dataset_name: "sunrgbd"
+  data_dir: "./data/sunrgbd"
+  manifest_path: "./data/sunrgbd_manifest.json"
+
+  # Split configuration
+  train_split: "train"
+  val_split: "test"
+
+  # Sensor filtering (empty = use all sensors)
+  sensor_types: []  # Use all: [" kv1", "kv2", "realsense", "xtion"]
+
+  # Image preprocessing - Higher resolution for production
+  input_height: 480
+  input_width: 640
+
+  # Data augmentation - Comprehensive for better generalization
+  augmentation:
+    random_crop: true
+    horizontal_flip: true
+    flip_probability: 0.5
+    color_jitter: true
+    brightness: 0.3
+    contrast: 0.3
+    saturation: 0.3
+    hue: 0.1
+    random_gamma: true
+    gamma_range: [0.7, 1.3]
+
+# Model configuration
+model:
+  architecture: "baseline_unet"
+
+  # Architecture parameters - Larger model for production
+  in_channels: 3
+  init_features: 96  # Larger feature maps for better accuracy
+  max_depth: 10.0
+
+# Optimization configuration - Optimized for production
+optimization:
+  optimizer: "adamw"
+  learning_rate: 1.0e-4  # Standard learning rate
+  weight_decay: 1.0e-5
+
+  # Adam parameters
+  adam:
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+
+  # Learning rate scheduling - Cosine annealing for smooth decay
+  lr_scheduler: "cosine"
+  lr_warmup_epochs: 5
+  lr_min: 1.0e-7
+
+  # Gradient management
+  gradient_clip: true
+  gradient_clip_value: 1.0
+
+# Loss function configuration
+loss:
+  # Loss weights based on 2024-2025 research
+  si_weight: 1.0          # Scale-invariant loss (main depth accuracy)
+  grad_weight: 0.1        # Gradient matching loss (edge sharpness)
+  smooth_weight: 0.001    # Edge-aware smoothness
+  reproj_weight: 0.01     # Reprojection error (geometric consistency with camera intrinsics)
+                          # Based on: UniDepth (CVPR 2024), Long-term reprojection loss (2024)
+
+  # Depth range
+  min_depth: 0.1
+  max_depth: 10.0
+
+# Training loop configuration - Production settings
+training:
+  num_epochs: 150  # More epochs for convergence
+  batch_size: 32   # Large batch for high-end GPU (40GB VRAM)
+  num_workers: 16  # Utilize many CPU cores
+  pin_memory: true
+  prefetch_factor: 4
+
+  # Mixed precision (if LibTorch supports it in future)
+  use_amp: false
+
+  # Logging intervals
+  log_interval: 10        # Log every 10 batches
+  val_interval: 5         # Validate every 5 epochs
+  viz_interval: 1         # Visualize every epoch
+
+# Visualization and monitoring
+visualization:
+  save_predictions: true
+  num_viz_samples: 12      # More samples for thorough inspection
+  save_error_maps: true
+  colormap: "viridis"
+
+# Validation metrics
+validation:
+  metrics: ["abs_rel", "sq_rel", "rmse", "rmse_log",
+            "delta_1.25", "delta_1.25^2", "delta_1.25^3"]
+  primary_metric: "abs_rel"
+  metric_mode: "min"
+  min_depth: 0.1
+  max_depth: 10.0
+
+# Checkpointing configuration
+checkpointing:
+  checkpoint_dir: "./checkpoints"
+  save_interval: 5         # Save every 5 epochs
+  save_best_only: false    # Save all checkpoints for analysis
+  save_last: true
+  keep_last_n: 10          # Keep last 10 checkpoints
+
+# Early stopping
+early_stopping:
+  enabled: true
+  patience: 30             # More patience for production training
+  min_delta: 1.0e-5
+
+# Logging and experiment tracking
+logging:
+  log_dir: "./logs"
+
+  # TensorBoard - Primary monitoring tool
+  tensorboard:
+    enabled: true
+    tensorboard_dir: "./runs"
+    log_scalar_interval: 10
+    log_image_interval: 1       # Log images every epoch
+    log_histogram_interval: 5   # Log weights every 5 epochs
+
+  # CSV logging for post-analysis
+  csv:
+    enabled: true
+    metrics_file: "metrics.csv"
+    losses_file: "losses.csv"
+
+  console:
+    verbose: true
+    show_progress_bar: true
+
+# Hardware configuration - Production GPU
+hardware:
+  device: "cuda"     # NVIDIA GPU
+  use_cuda: true
+  num_threads: 32    # Use all CPU cores
+
+  # Memory optimization
+  memory_optimization:
+    enabled: true
+    max_memory_cached: 35  # GB - Leave headroom for system
+
+# Performance tuning for production
+performance:
+  # Data loading optimization
+  persistent_workers: true
+  multiprocessing_context: "spawn"  # More stable for production
+
+  # Compilation optimizations
+  torch_compile: false  # May be enabled when stable
+
+# Debug mode (disabled in production)
+debug:
+  enabled: false
+  num_train_samples: 100
+  num_val_samples: 50
+  num_epochs: 2
+  log_interval: 5
+
+# Dataset statistics (for reference)
+dataset_info:
+  total_images: 10335
+  train_images: 10335
+  val_images: 10335    # Will use subset for validation
+  sensors:
+    kv1: 2003
+    kv2: 3784
+    realsense: 1159
+    xtion: 3389
+
+# Expected performance on production hardware
+expected_performance:
+  training_time_per_epoch: "~2-3 minutes"   # With A100 GPU
+  total_training_time: "~5-7.5 hours"       # For 150 epochs
+  memory_usage: "~30-35 GB"                 # Peak VRAM usage
+  throughput: "~80-100 samples/sec"         # With batch_size=32
+
+# Recommended monitoring
+monitoring:
+  check_memory: "nvidia-smi"
+  check_gpu: "watch -n 1 nvidia-smi"
+  tensorboard: "tensorboard --logdir=./runs --bind_all"
+  wandb: "Optional: Integrate W&B for cloud monitoring"
+
+# Production optimization notes
+optimization_notes:
+  - "Batch size of 32 optimized for 40GB GPU (A100/V100)"
+  - "16 data loading workers to saturate I/O bandwidth"
+  - "CUDA backend for maximum GPU utilization"
+  - "Validation every 5 epochs to balance training speed and monitoring"
+  - "Image size 480x640 for high-quality depth estimation"
+  - "Cosine learning rate schedule for smooth convergence"
+  - "150 epochs for full model convergence"
+  - "Pin memory enabled for faster GPU transfer"
+  - "Reprojection loss for geometric consistency"
+  - "TensorBoard with comprehensive metrics and visualizations"
+
+# Recommended usage
+usage:
+  training: "./build/train --config configs/train_config_production.yaml --tensorboard true"
+  tensorboard: "tensorboard --logdir=./runs --port=6006"
+  monitoring: "watch -n 1 'nvidia-smi && echo && tail -n 10 logs/training.log'"
+
+# Reproducibility settings
+reproducibility:
+  seed: 42
+  deterministic: false  # Set true for full reproducibility (slower)
+  benchmark: true       # cudnn.benchmark for faster training

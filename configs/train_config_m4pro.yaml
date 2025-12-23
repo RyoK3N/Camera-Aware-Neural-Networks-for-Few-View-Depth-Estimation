@@ -1,0 +1,217 @@
+# Training Configuration Optimized for Mac M4 Pro
+# Hardware: 24GB Unified Memory, 16 GPU Cores (Metal Performance Shaders)
+# Optimized for maximum performance on Apple Silicon
+
+experiment:
+  name: "baseline_unet_m4pro"
+  description: "Baseline U-Net training optimized for Mac M4 Pro"
+  tags: ["baseline", "unet", "sunrgbd", "m4pro", "mps"]
+  seed: 42
+  deterministic: false
+
+# Dataset configuration
+data:
+  dataset_name: "sunrgbd"
+  data_dir: "./data/sunrgbd"
+  manifest_path: "./data/sunrgbd_manifest.json"
+
+  # Split configuration
+  train_split: "train"
+  val_split: "test"
+
+  # Sensor filtering (empty = use all sensors)
+  sensor_types: []  # Use all: ["kv1", "kv2", "realsense", "xtion"]
+
+  # Image preprocessing - Optimized for M4 Pro
+  # Smaller images = faster processing, less memory
+  input_height: 240
+  input_width: 320
+
+  # Data augmentation - Enabled for better generalization
+  augmentation:
+    random_crop: true
+    horizontal_flip: true
+    flip_probability: 0.5
+    color_jitter: true
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+
+# Model configuration
+model:
+  architecture: "baseline_unet"
+
+  # Architecture parameters
+  in_channels: 3
+  init_features: 64  # 64 features for good performance vs speed balance
+  max_depth: 10.0
+
+# Optimization configuration - Tuned for M4 Pro
+optimization:
+  optimizer: "adamw"
+  learning_rate: 2.0e-4  # Slightly higher LR for faster convergence
+  weight_decay: 1.0e-5
+
+  # Adam parameters
+  adam:
+    betas: [0.9, 0.999]
+    eps: 1.0e-8
+
+  # Learning rate scheduling
+  lr_scheduler: "step"
+  lr_step_size: 10
+  lr_gamma: 0.5
+  lr_warmup_epochs: 2
+  lr_min: 1.0e-6
+
+  # Gradient management
+  gradient_clip: true
+  gradient_clip_value: 1.0
+
+# Loss function configuration
+loss:
+  # Loss weights
+  si_weight: 1.0          # Scale-invariant loss (main depth accuracy)
+  grad_weight: 0.1        # Gradient matching loss (edge sharpness)
+  smooth_weight: 0.001    # Edge-aware smoothness
+  reproj_weight: 0.01     # Reprojection error (geometric consistency with camera intrinsics)
+                          # Based on 2024-2025 research: UniDepth, Long-term reprojection loss
+
+  # Depth range
+  min_depth: 0.1
+  max_depth: 10.0
+
+# Training loop configuration - Optimized for M4 Pro
+training:
+  num_epochs: 100  # More epochs for better convergence
+  batch_size: 16   # Optimized for 24GB unified memory
+  num_workers: 8   # Utilize 16 cores (half for data loading)
+  pin_memory: false  # Not needed for unified memory architecture
+  prefetch_factor: 2
+
+  # Mixed precision (Note: MPS backend support varies)
+  use_amp: false
+
+  # Logging intervals
+  log_interval: 10        # Log every 10 batches
+  val_interval: 10        # Validate every 10 epochs
+  viz_interval: 1         # Visualize every epoch
+
+# Validation and visualization
+visualization:
+  save_predictions: true
+  num_viz_samples: 8      # More samples for better insight
+  save_error_maps: true
+  colormap: "viridis"
+
+# Validation metrics
+validation:
+  metrics: ["abs_rel", "sq_rel", "rmse", "rmse_log",
+            "delta_1.25", "delta_1.25^2", "delta_1.25^3"]
+  primary_metric: "abs_rel"
+  metric_mode: "min"
+  min_depth: 0.1
+  max_depth: 10.0
+
+# Checkpointing configuration
+checkpointing:
+  checkpoint_dir: "./checkpoints"
+  save_interval: 10       # Save every 10 epochs
+  save_best_only: false   # Save all checkpoints for comparison
+  save_last: true
+  keep_last_n: 5          # Keep last 5 checkpoints
+
+# Early stopping
+early_stopping:
+  enabled: true
+  patience: 20           # More patience for better convergence
+  min_delta: 1.0e-4
+
+# Logging and experiment tracking
+logging:
+  log_dir: "./logs"
+
+  # TensorBoard - Primary monitoring tool (Enhanced with state-of-the-art visualizations)
+  tensorboard:
+    enabled: true
+    tensorboard_dir: "./runs"
+    log_scalar_interval: 10
+    log_image_interval: 1      # Log images every epoch
+    log_histogram_interval: 5   # Log weights/gradients every 5 epochs (enhanced)
+
+  # CSV logging for easy analysis
+  csv:
+    enabled: true
+    metrics_file: "metrics.csv"
+    losses_file: "losses.csv"
+
+  console:
+    verbose: true
+    show_progress_bar: true
+
+# Hardware configuration - Mac M4 Pro Specific
+hardware:
+  device: "mps"      # Metal Performance Shaders for GPU acceleration
+  use_mps: true      # Enable MPS backend
+  num_threads: 16    # Use all 16 cores for CPU operations
+
+  # Memory optimization for unified memory
+  memory_optimization:
+    enabled: true
+    max_memory_cached: 20  # GB - Leave 4GB for system
+
+# Performance tuning for M4 Pro
+performance:
+  # Enable Metal optimizations
+  use_metal: true
+
+  # Data loading optimization
+  persistent_workers: true
+  multiprocessing_context: "fork"  # Faster on macOS
+
+  # Compilation optimizations
+  torch_compile: false  # May not be fully supported on MPS yet
+
+# Debug mode (for quick testing)
+debug:
+  enabled: false
+  num_train_samples: 100
+  num_val_samples: 50
+  num_epochs: 2
+  log_interval: 5
+
+# Dataset statistics (for reference)
+dataset_info:
+  total_images: 10335
+  train_images: 10335  # Using all for training
+  val_images: 10335    # Same for validation (will use subset)
+  sensors:
+    kv1: 2003
+    kv2: 3784
+    realsense: 1159
+    xtion: 3389
+
+# Expected performance on M4 Pro
+expected_performance:
+  training_time_per_epoch: "~5-8 minutes"  # Estimated with MPS
+  total_training_time: "~8-13 hours"       # For 100 epochs
+  memory_usage: "~12-16 GB"                # Peak memory usage
+  throughput: "~25-30 samples/sec"         # With batch_size=16
+
+# Recommended monitoring
+monitoring:
+  check_memory: "Activity Monitor"
+  check_gpu: "sudo powermetrics --samplers gpu_power"
+  tensorboard: "tensorboard --logdir=./runs"
+
+# Notes for M4 Pro optimization
+optimization_notes:
+  - "Batch size of 16 optimized for 24GB unified memory"
+  - "8 data loading workers to utilize 16 cores efficiently"
+  - "MPS backend for GPU acceleration (Metal Performance Shaders)"
+  - "Validation every 10 epochs to balance training speed and monitoring"
+  - "Image size 240x320 for optimal throughput"
+  - "Pin memory disabled (not needed for unified memory)"
+  - "Higher learning rate (2e-4) for faster convergence"
+  - "More epochs (100) to fully utilize training capacity"

@@ -1,0 +1,2 @@
+epoch,step,train_loss,val_loss,abs_rel,sq_rel,rmse,rmse_log,a1,a2,a3,learning_rate,time_elapsed
+1,0,0.647859,0,0,0,0,0,0,0,0,0.0002,14923

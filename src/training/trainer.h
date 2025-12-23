@@ -64,6 +64,7 @@ struct TrainingConfig {
     float si_weight = 1.0f;
     float grad_weight = 0.1f;
     float smooth_weight = 0.001f;
+    float reproj_weight = 0.01f;  // Reprojection error (geometric consistency)
 
     // Depth range
     float min_depth = 0.1f;

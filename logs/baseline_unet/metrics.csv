@@ -1,0 +1,1 @@
+epoch,step,train_loss,train_si_loss,train_grad_loss,train_smooth_loss,val_loss,val_abs_rel,val_rmse,learning_rate,time_elapsed

@@ -161,6 +161,8 @@ SunRGBDSample SunRGBDLoader::getSample(size_t index) {
     // Apply augmentation if enabled
     if (augmentation_enabled_ && split_ == "train") {
         sample = augmentSample(sample);
+        // Resize again after augmentation to ensure consistent batch dimensions
+        resizeSample(sample);
     }
 
     return sample;

@@ -40,18 +40,12 @@ public:
             return results;
         }
 
-        // Check for SUNRGBD directory
-        std::string sunrgbd_dir = data_dir_ + "/SUNRGBD";
-        if (!fs::exists(sunrgbd_dir)) {
-            std::cerr << "Error: SUNRGBD directory not found: " << sunrgbd_dir << std::endl;
-            return results;
-        }
-
         // Sensor types in SUN RGB-D
         std::vector<std::string> sensor_types = {"kv1", "kv2", "realsense", "xtion"};
 
+        // Check for direct sensor directories (e.g., data/sunrgbd/kv1/)
         for (const auto& sensor : sensor_types) {
-            std::string sensor_dir = sunrgbd_dir + "/" + sensor;
+            std::string sensor_dir = data_dir_ + "/" + sensor;
             if (fs::exists(sensor_dir) && fs::is_directory(sensor_dir)) {
                 std::cout << "\n=== Validating " << sensor << " sensor data ===" << std::endl;
                 validateSensorDirectory(sensor_dir, sensor, results);
